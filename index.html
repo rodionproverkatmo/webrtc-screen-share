@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>WebRTC Голос и Экран (2 участника)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Firebase (модули через CDN, без сборщиков) -->
+    <script type="module" src="script.js" defer></script>
+</head>
+<body>
+<div class="app">
+    <h1>WebRTC Голосовой звонок и демонстрация экрана</h1>
+
+    <div class="card">
+        <label for="roomInput">Код комнаты</label>
+        <input id="roomInput" type="text" placeholder="Например, room123" />
+        <button id="connectBtn">Создать / Подключиться</button>
+        <p id="statusText">Введите код комнаты и нажмите "Создать / Подключиться".</p>
+    </div>
+
+    <div class="card controls">
+        <button id="micBtn" disabled>Выключить микрофон</button>
+        <button id="screenBtn" disabled>Начать демонстрацию экрана</button>
+    </div>
+
+    <div class="videos">
+        <div class="video-wrapper">
+            <h2>Вы</h2>
+            <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="video-wrapper">
+            <h2>Собеседник</h2>
+            <video id="remoteVideo" autoplay playsinline></video>
+        </div>
+    </div>
+
+    <div class="card info">
+        <p><strong>Подсказки:</strong></p>
+        <ul>
+            <li>Откройте эту страницу на двух устройствах/вкладках.</li>
+            <li>Введите одинаковый код комнаты и нажмите "Создать / Подключиться" на обоих.</li>
+            <li>Разрешите доступ к микрофону (и экрану при включении трансляции).</li>
+            <li>Кнопка "Начать демонстрацию экрана" включает передачу экрана со звуком (если доступен).</li>
+        </ul>
+    </div>
+</div>
+</body>
+</html>
