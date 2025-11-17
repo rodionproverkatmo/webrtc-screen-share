@@ -54,6 +54,9 @@ let localStream = null;
 let screenStream = null;
 let usingScreen = false;
 
+let videoSender = null; // RTCRtpSender для видео
+let audioSender = null; // RTCRtpSender для аудио (экрана/микрофона)
+
 let roomId = null;
 let isCaller = false;
 
@@ -135,9 +138,9 @@ function createPeerConnection() {
 
     // Добавляем аудио-треки
     if (localStream) {
-        for (const track of localStream.getTracks()) {
-            pc.addTrack(track, localStream);
-        }
+        localStream.getAudioTracks().forEach(track => {
+        audioSender = pc.addTrack(track, localStream);
+    });
     }
 }
 
@@ -292,44 +295,53 @@ screenBtn.addEventListener("click", async () => {
     if (!pc) return;
 
     if (!usingScreen) {
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== "function") {
+            setStatus("Ваш браузер не поддерживает демонстрацию экрана.");
+            return;
+        }
+
         try {
+            // Получаем экран (видео + системный/вкладочный звук, если доступен)
             screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: true,
                 audio: true
             });
 
-            // Слушаем остановку экрана со стороны браузера
+            usingScreen = true;
+            screenBtn.textContent = "Остановить демонстрацию экрана";
+            setStatus("Экран транслируется.");
+
+            // Показываем экран локально
+            localVideo.srcObject = screenStream;
+
+            const screenVideoTrack = screenStream.getVideoTracks()[0] || null;
+            const screenAudioTrack = screenStream.getAudioTracks()[0] || null;
+
+            // === ВИДЕО ===
+            if (screenVideoTrack) {
+                if (!videoSender) {
+                    // Раньше видео не отправляли — добавляем новый sender
+                    videoSender = pc.addTrack(screenVideoTrack, screenStream);
+                } else {
+                    // Уже есть отправитель видео — просто заменяем трек
+                    await videoSender.replaceTrack(screenVideoTrack);
+                }
+            }
+
+            // === АУДИО ЭКРАНА ===
+            if (screenAudioTrack) {
+                if (!audioSender) {
+                    audioSender = pc.addTrack(screenAudioTrack, screenStream);
+                } else {
+                    await audioSender.replaceTrack(screenAudioTrack);
+                }
+            }
+
+            // Когда пользователь руками останавливает шаринг через системный диалог
             screenStream.getVideoTracks()[0].addEventListener("ended", () => {
                 stopScreenShare();
             });
 
-            // Отправляем видеотрек экрана (и аудио, если есть)
-            const senders = pc.getSenders();
-
-            const screenVideoTrack = screenStream.getVideoTracks()[0];
-            let videoSender = senders.find((s) => s.track && s.track.kind === "video");
-            if (!videoSender) {
-                videoSender = pc.addTrack(screenVideoTrack, screenStream);
-            } else {
-                videoSender.replaceTrack(screenVideoTrack);
-            }
-
-            const screenAudioTrack = screenStream.getAudioTracks()[0];
-            if (screenAudioTrack) {
-                let audioSender = senders.find(
-                    (s) => s.track && s.track.kind === "audio" && (!localStream || !localStream.getAudioTracks().includes(s.track))
-                );
-                if (!audioSender) {
-                    pc.addTrack(screenAudioTrack, screenStream);
-                } else {
-                    audioSender.replaceTrack(screenAudioTrack);
-                }
-            }
-
-            localVideo.srcObject = screenStream;
-            usingScreen = true;
-            screenBtn.textContent = "Остановить демонстрацию экрана";
-            setStatus("Экран транслируется.");
         } catch (e) {
             handleError(e, "Не удалось начать демонстрацию экрана.");
         }
@@ -337,6 +349,42 @@ screenBtn.addEventListener("click", async () => {
         stopScreenShare();
     }
 });
+
+async function stopScreenShare() {
+    if (!usingScreen) return;
+
+    usingScreen = false;
+    screenBtn.textContent = "Начать демонстрацию экрана";
+    setStatus("Демонстрация экрана остановлена.");
+
+    if (screenStream) {
+        screenStream.getTracks().forEach(t => t.stop());
+        screenStream = null;
+    }
+
+    // Возвращаем локальный микрофон в виде отправляемого аудио
+    const micTrack = localStream?.getAudioTracks()[0] || null;
+
+    if (audioSender && micTrack) {
+        try {
+            await audioSender.replaceTrack(micTrack);
+        } catch (e) {
+            console.warn("Не удалось вернуть аудио микрофона:", e);
+        }
+    }
+
+    // Видео убираем (мы не используем камеру по умолчанию)
+    if (videoSender) {
+        try {
+            await videoSender.replaceTrack(null);
+        } catch (e) {
+            console.warn("Не удалось отключить видеотрек:", e);
+        }
+    }
+
+    // Снова показываем локальный поток микрофона (аудио) / пустое видео
+    localVideo.srcObject = localStream || null;
+}
 
 function stopScreenShare() {
     if (!usingScreen) return;
