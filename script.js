@@ -386,38 +386,7 @@ async function stopScreenShare() {
     localVideo.srcObject = localStream || null;
 }
 
-function stopScreenShare() {
-    if (!usingScreen) return;
 
-    if (screenStream) {
-        screenStream.getTracks().forEach((t) => t.stop());
-        screenStream = null;
-    }
-
-    const senders = pc ? pc.getSenders() : [];
-
-    // Удаляем видеотрек экрана
-    const videoSender = senders.find((s) => s.track && s.track.kind === "video");
-    if (videoSender) {
-        pc.removeTrack(videoSender);
-    }
-
-    // Восстанавливаем локальный аудио, если был
-    const localAudioTrack = localStream?.getAudioTracks()[0];
-    if (localAudioTrack) {
-        let audioSender = senders.find((s) => s.track && s.track.kind === "audio");
-        if (!audioSender) {
-            pc.addTrack(localAudioTrack, localStream);
-        } else {
-            audioSender.replaceTrack(localAudioTrack);
-        }
-    }
-
-    localVideo.srcObject = localStream || null;
-    usingScreen = false;
-    screenBtn.textContent = "Начать демонстрацию экрана";
-    setStatus("Демонстрация экрана остановлена.");
-}
 
 // --- Подключение ---
 connectBtn.addEventListener("click", async () => {
